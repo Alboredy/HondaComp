@@ -6,7 +6,7 @@ A zero-dependency, client-side viewer for the Android WhatsApp export in this re
 
 Serve the repository root over HTTP/HTTPS, or publish it with GitHub Pages. Opening `index.html` directly as a `file://` URL will not load `chat.txt` because browsers restrict local-file fetches. The viewer supports participant perspective switching, keyword search, system events, images with a full-screen preview, audio, video, and downloadable files.
 
-Message timestamps are formatted for the IANA `Africa/Cairo` timezone, including Cairo’s date-specific daylight-saving offset. WhatsApp’s exported timestamp text does not contain a source timezone, so the viewer treats the exported date/time as Cairo-local wall time rather than guessing a conversion from another timezone.
+Each message displays only its clock time; a centered pill divider marks each new Cairo-local date and groups that day’s conversation beneath it. Times and date dividers use the IANA `Africa/Cairo` timezone, including Cairo’s date-specific daylight-saving offset. WhatsApp’s exported timestamp text does not contain a source timezone, so the viewer treats the exported date/time as Cairo-local wall time rather than guessing a conversion from another timezone.
 
 For future Android exports, extract the ZIP and put the transcript at the repository root as `chat.txt`. Keep the original WhatsApp media filenames in the same directory. Check repository and individual file sizes before committing; GitHub rejects files larger than 100 MB.
 
