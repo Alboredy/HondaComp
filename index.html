@@ -213,6 +213,11 @@
         option.textContent = `Right side: ${sender}`;
         meSelect.append(option);
       }
+      const fahad = senders.find(sender => sender.toLocaleLowerCase() === 'fahad');
+      if (fahad) {
+        currentMe = fahad;
+        meSelect.value = fahad;
+      }
     }
 
     function appendAttachment(parent, content) {
