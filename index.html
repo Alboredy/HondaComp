@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#075e54" />
+  <meta name="description" content="A private, client-side viewer for an exported WhatsApp chat archive." />
+  <title>Chat Archive</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #101b20;
+      --paper: #efeae2;
+      --header: #075e54;
+      --sent: #d9fdd3;
+      --received: #fff;
+      --ink: #172126;
+      --muted: #667781;
+      --system: #fff1ce;
+      --line: rgba(255,255,255,.14);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      display: flex;
+      justify-content: center;
+      background: var(--page);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    .app {
+      width: min(100%, 650px);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+      box-shadow: 0 8px 40px rgba(0,0,0,.28);
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 16px 18px 14px;
+      color: #fff;
+      background: var(--header);
+      box-shadow: 0 2px 8px rgba(0,0,0,.16);
+    }
+    .heading-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand { display:flex; align-items:center; gap:11px; min-width:0; }
+    .brand-mark {
+      display:grid; place-items:center; flex:none; width:39px; height:39px;
+      border-radius:50%; color:#075e54; background:#e2f5e9;
+      font-size:17px; font-weight:800; letter-spacing:-1px;
+    }
+    h1 { margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1.08rem; font-weight:650; }
+    .subtitle { margin-top:3px; color:rgba(255,255,255,.75); font-size:.76rem; }
+    #msg-count { flex:none; color:rgba(255,255,255,.82); font-size:.76rem; text-align:right; }
+    .controls { display:flex; gap:9px; margin-top:14px; }
+    .controls select, .controls input {
+      min-height:42px; border:1px solid rgba(255,255,255,.18); border-radius:9px;
+      outline:none; font-size:.86rem;
+    }
+    .controls select { max-width:48%; padding:0 30px 0 11px; color:#fff; background:#064b43; }
+    .controls input { min-width:0; flex:1; padding:0 12px; color:#172126; background:#fff; }
+    .controls input::placeholder { color:#78868d; }
+    .controls input:focus, .controls select:focus { box-shadow:0 0 0 3px rgba(169,235,194,.38); }
+    #chat-box {
+      flex:1; min-height:0; overflow:auto; overscroll-behavior:contain;
+      padding:18px 14px 30px; display:flex; flex-direction:column; gap:7px;
+      background-color:var(--paper);
+      background-image:radial-gradient(rgba(112,101,87,.12) .75px, transparent .75px);
+      background-size:18px 18px;
+    }
+    .msg {
+      max-width:min(82%, 540px); padding:8px 10px 7px; border-radius:9px;
+      box-shadow:0 1px 1.5px rgba(0,0,0,.12); font-size:.94rem; line-height:1.42;
+      overflow-wrap:anywhere; animation:appear .16s ease-out both;
+    }
+    .msg.sent { align-self:flex-end; background:var(--sent); border-top-right-radius:2px; }
+    .msg.recv { align-self:flex-start; background:var(--received); border-top-left-radius:2px; }
+    .msg.sys {
+      align-self:center; max-width:90%; padding:6px 12px; margin:3px 0;
+      border-radius:9px; color:#58646a; background:var(--system); text-align:center;
+      font-size:.78rem; box-shadow:0 1px 1px rgba(0,0,0,.08);
+    }
+    .sender { margin:0 0 3px; color:#087c9e; font-size:.76rem; font-weight:700; }
+    .sent .sender { display:none; }
+    .text { white-space:pre-wrap; }
+    .time { margin-top:4px; color:var(--muted); font-size:.66rem; text-align:right; }
+    .media-img, .media-video { display:block; max-width:100%; max-height:360px; margin-top:3px; border-radius:6px; }
+    .media-img { cursor:zoom-in; object-fit:contain; }
+    audio { display:block; width:min(270px, 100%); height:40px; margin-top:3px; }
+    .file-link {
+      display:inline-flex; align-items:center; gap:8px; max-width:100%; margin-top:3px;
+      padding:9px 11px; border-radius:7px; background:rgba(0,0,0,.055); color:#087c9e;
+      font-size:.84rem; font-weight:600; text-decoration:none; overflow-wrap:anywhere;
+    }
+    .file-link:hover { text-decoration:underline; }
+    .caption { margin-top:6px; }
+    .empty, #status { align-self:center; margin:auto; padding:22px; color:#65747a; text-align:center; line-height:1.55; }
+    #status.error { max-width:440px; }
+    #status code { padding:2px 5px; border-radius:4px; background:rgba(0,0,0,.07); }
+    #lightbox {
+      position:fixed; inset:0; z-index:10; display:none; align-items:center; justify-content:center;
+      padding:18px; background:rgba(7,13,16,.94); cursor:zoom-out;
+    }
+    #lightbox.open { display:flex; }
+    #lightbox img { max-width:100%; max-height:100%; object-fit:contain; }
+    #lightbox-close {
+      position:absolute; top:12px; right:14px; width:42px; height:42px; border:0;
+      border-radius:50%; background:rgba(255,255,255,.14); color:#fff; font-size:25px; cursor:pointer;
+    }
+    @keyframes appear { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+    @media (max-width:480px) {
+      .topbar { padding:13px 12px 12px; }
+      #chat-box { padding:14px 9px 24px; }
+      .msg { max-width:88%; font-size:.92rem; }
+      .controls { gap:7px; }
+      .controls select { max-width:47%; font-size:.78rem; }
+      .controls input { font-size:.84rem; }
+    }
+    @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration:.01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="WhatsApp chat archive">
+    <header class="topbar">
+      <div class="heading-row">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">WA</div>
+          <div>
+            <h1>Chat Archive</h1>
+            <div class="subtitle">Read-only conversation viewer</div>
+          </div>
+        </div>
+        <div id="msg-count" aria-live="polite">Loading…</div>
+      </div>
+      <div class="controls">
+        <select id="me-select" aria-label="Choose which participant's messages appear on the right">
+          <option value="">Everyone on the left</option>
+        </select>
+        <input id="search-input" type="search" placeholder="Search messages or people" aria-label="Search messages or senders" autocomplete="off" />
+      </div>
+    </header>
+    <section id="chat-box" aria-label="Conversation" aria-live="polite">
+      <div id="status">Loading chat archive…</div>
+    </section>
+  </main>
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Image preview">
+    <button id="lightbox-close" type="button" aria-label="Close image preview">×</button>
+    <img id="lightbox-img" alt="Full-size attachment" />
+  </div>
+  <script>
+    'use strict';
+    const chatBox = document.getElementById('chat-box');
+    const meSelect = document.getElementById('me-select');
+    const searchInput = document.getElementById('search-input');
+    const msgCount = document.getElementById('msg-count');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightbox-img');
+    const msgRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4},\s\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap][Mm])?)\s-\s([^:]+):\s(.*)$/;
+    const sysRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4},\s\d{1,2}:\d{2}(?::\d{2})?(?:\s?[APap][Mm])?)\s-\s(.*)$/;
+    const attachmentRegex = /^([^\r\n]+?\.(jpg|jpeg|png|webp|gif|opus|ogg|mp3|m4a|mp4|mov|pdf|docx|xlsx|xls|pptx|txt|zip))\s*\(file attached\)(.*)$/is;
+    const imageTypes = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
+    const audioTypes = new Set(['opus', 'ogg', 'mp3', 'm4a']);
+    const videoTypes = new Set(['mp4', 'mov']);
+    let messages = [];
+    let currentMe = '';
+
+    async function init() {
+      try {
+        const response = await fetch('chat.txt');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        parseChat(await response.text());
+        renderMessages();
+      } catch (error) {
+        const status = document.getElementById('status');
+        status.className = 'error';
+        status.textContent = 'Could not load chat.txt. Keep the transcript next to index.html and open this page through HTTP or HTTPS (not directly as a file).';
+        msgCount.textContent = 'Archive unavailable';
+      }
+    }
+
+    function parseChat(rawText) {
+      messages = [];
+      const senders = new Set();
+      for (const originalLine of rawText.split(/\r?\n/)) {
+        const line = originalLine.replace(/[\u200e\u200f]/g, '');
+        const messageMatch = line.match(msgRegex);
+        if (messageMatch) {
+          const [, time, rawSender, content] = messageMatch;
+          const sender = rawSender.trim();
+          senders.add(sender);
+          messages.push({ type: 'msg', time, sender, content });
+          continue;
+        }
+        const systemMatch = line.match(sysRegex);
+        if (systemMatch) {
+          const [, time, content] = systemMatch;
+          messages.push({ type: 'sys', time, content });
+        } else if (messages.length && line.trim() !== '') {
+          messages[messages.length - 1].content += `\n${line}`;
+        }
+      }
+      populateSenders([...senders]);
+    }
+
+    function populateSenders(senders) {
+      for (const sender of senders) {
+        const option = document.createElement('option');
+        option.value = sender;
+        option.textContent = `Right side: ${sender}`;
+        meSelect.append(option);
+      }
+    }
+
+    function appendAttachment(parent, content) {
+      const match = content.match(attachmentRegex);
+      if (!match) {
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = content;
+        parent.append(text);
+        return;
+      }
+      const [, fileName, rawExtension, rawCaption] = match;
+      const extension = rawExtension.toLowerCase();
+      const mediaUrl = encodeURI(fileName);
+      let element;
+      if (imageTypes.has(extension)) {
+        element = document.createElement('img');
+        element.className = 'media-img';
+        element.src = mediaUrl;
+        element.loading = 'lazy';
+        element.alt = `Image attachment: ${fileName}`;
+        element.addEventListener('click', () => openLightbox(mediaUrl));
+      } else if (audioTypes.has(extension)) {
+        element = document.createElement('audio');
+        element.controls = true;
+        element.preload = 'none';
+        element.src = mediaUrl;
+      } else if (videoTypes.has(extension)) {
+        element = document.createElement('video');
+        element.className = 'media-video';
+        element.controls = true;
+        element.preload = 'metadata';
+        element.src = mediaUrl;
+      } else {
+        element = document.createElement('a');
+        element.className = 'file-link';
+        element.href = mediaUrl;
+        element.target = '_blank';
+        element.rel = 'noopener noreferrer';
+        element.textContent = `▤  ${fileName}`;
+      }
+      parent.append(element);
+      if (rawCaption.trim()) {
+        const caption = document.createElement('div');
+        caption.className = 'text caption';
+        caption.textContent = rawCaption.trim();
+        parent.append(caption);
+      }
+    }
+
+    function renderMessages(filter = '') {
+      chatBox.replaceChildren();
+      const query = filter.trim().toLocaleLowerCase();
+      const fragment = document.createDocumentFragment();
+      let visible = 0;
+      for (const item of messages) {
+        const searchable = `${item.content} ${item.sender || ''}`.toLocaleLowerCase();
+        if (query && !searchable.includes(query)) continue;
+        visible += 1;
+        const bubble = document.createElement('article');
+        if (item.type === 'sys') {
+          bubble.className = 'msg sys';
+          bubble.textContent = item.content;
+        } else {
+          bubble.className = `msg ${item.sender === currentMe && currentMe ? 'sent' : 'recv'}`;
+          const sender = document.createElement('div');
+          sender.className = 'sender';
+          sender.textContent = item.sender;
+          bubble.append(sender);
+          appendAttachment(bubble, item.content);
+          const time = document.createElement('div');
+          time.className = 'time';
+          time.textContent = item.time;
+          bubble.append(time);
+        }
+        fragment.append(bubble);
+      }
+      if (!visible) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = query ? 'No messages match that search.' : 'This chat archive is empty.';
+        fragment.append(empty);
+      }
+      chatBox.append(fragment);
+      msgCount.textContent = query ? `${visible} of ${messages.length} messages` : `${messages.length} messages`;
+    }
+
+    function openLightbox(src) {
+      lightboxImage.src = src;
+      lightbox.classList.add('open');
+      document.getElementById('lightbox-close').focus();
+    }
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightboxImage.removeAttribute('src');
+    }
+    meSelect.addEventListener('change', event => {
+      currentMe = event.target.value;
+      renderMessages(searchInput.value);
+    });
+    searchInput.addEventListener('input', event => renderMessages(event.target.value));
+    lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeLightbox(); });
+    init();
+  </script>
+</body>
+</html>
