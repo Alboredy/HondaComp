@@ -57,14 +57,18 @@
     .subtitle { margin-top:3px; color:rgba(255,255,255,.75); font-size:.76rem; }
     #msg-count { flex:none; color:rgba(255,255,255,.82); font-size:.76rem; text-align:right; }
     .controls { display:flex; gap:9px; margin-top:14px; }
-    .controls select, .controls input {
+    .controls input {
       min-height:42px; border:1px solid rgba(255,255,255,.18); border-radius:9px;
       outline:none; font-size:.86rem;
     }
-    .controls select { max-width:48%; padding:0 30px 0 11px; color:#fff; background:#064b43; }
     .controls input { min-width:0; flex:1; padding:0 12px; color:#172126; background:#fff; }
     .controls input::placeholder { color:#78868d; }
-    .controls input:focus, .controls select:focus { box-shadow:0 0 0 3px rgba(169,235,194,.38); }
+    .controls input:focus { box-shadow:0 0 0 3px rgba(169,235,194,.38); }
+    .perspective-label {
+      flex:none; align-self:center; color:rgba(255,255,255,.82); font-size:.78rem;
+      white-space:nowrap;
+    }
+    .perspective-label strong { color:#fff; font-weight:700; }
     #chat-box {
       flex:1; min-height:0; overflow:auto; overscroll-behavior:contain;
       padding:18px 14px 30px; display:flex; flex-direction:column; gap:7px;
@@ -124,7 +128,6 @@
       #chat-box { padding:14px 9px 24px; }
       .msg { max-width:88%; font-size:.92rem; }
       .controls { gap:7px; }
-      .controls select { max-width:47%; font-size:.78rem; }
       .controls input { font-size:.84rem; }
     }
     @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration:.01ms !important; } }
@@ -144,9 +147,7 @@
         <div id="msg-count" aria-live="polite">Loading…</div>
       </div>
       <div class="controls">
-        <select id="me-select" aria-label="Choose which participant's messages appear on the right">
-          <option value="">Everyone on the left</option>
-        </select>
+        <div class="perspective-label">Right side: <strong>+20 10 90667899</strong></div>
         <input id="search-input" type="search" placeholder="Search messages or people" aria-label="Search messages or senders" autocomplete="off" />
       </div>
     </header>
@@ -161,7 +162,6 @@
   <script>
     'use strict';
     const chatBox = document.getElementById('chat-box');
-    const meSelect = document.getElementById('me-select');
     const searchInput = document.getElementById('search-input');
     const msgCount = document.getElementById('msg-count');
     const lightbox = document.getElementById('lightbox');
@@ -173,7 +173,7 @@
     const audioTypes = new Set(['opus', 'ogg', 'mp3', 'm4a']);
     const videoTypes = new Set(['mp4', 'mov']);
     let messages = [];
-    let currentMe = '';
+    const rightSideSender = 'Fahad';
     let chatDateOrder = 'mdy';
     const senderAliases = new Map([['fahad', '+20 10 90667899']]);
 
@@ -197,7 +197,6 @@
 
     function parseChat(rawText) {
       messages = [];
-      const senders = new Set();
       chatDateOrder = 'mdy';
       const lines = rawText.split(/\r?\n/);
       for (const originalLine of lines) {
@@ -216,7 +215,6 @@
         if (messageMatch) {
           const [, time, rawSender, content] = messageMatch;
           const sender = rawSender.trim();
-          senders.add(sender);
           messages.push({ type: 'msg', time, sender, content });
           continue;
         }
@@ -227,21 +225,6 @@
         } else if (messages.length && line.trim() !== '') {
           messages[messages.length - 1].content += `\n${line}`;
         }
-      }
-      populateSenders([...senders]);
-    }
-
-    function populateSenders(senders) {
-      for (const sender of senders) {
-        const option = document.createElement('option');
-        option.value = sender;
-        option.textContent = `Right side: ${displaySenderName(sender)}`;
-        meSelect.append(option);
-      }
-      const fahad = senders.find(sender => sender.toLocaleLowerCase() === 'fahad');
-      if (fahad) {
-        currentMe = fahad;
-        meSelect.value = fahad;
       }
     }
 
@@ -364,7 +347,7 @@
           bubble.className = 'msg sys';
           bubble.textContent = item.content;
         } else {
-          bubble.className = `msg ${item.sender === currentMe && currentMe ? 'sent' : 'recv'}`;
+          bubble.className = `msg ${item.sender === rightSideSender ? 'sent' : 'recv'}`;
           const sender = document.createElement('div');
           sender.className = 'sender';
           sender.textContent = displaySenderName(item.sender);
@@ -396,10 +379,6 @@
       lightbox.classList.remove('open');
       lightboxImage.removeAttribute('src');
     }
-    meSelect.addEventListener('change', event => {
-      currentMe = event.target.value;
-      renderMessages(searchInput.value);
-    });
     searchInput.addEventListener('input', event => renderMessages(event.target.value));
     lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
