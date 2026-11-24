@@ -175,6 +175,11 @@
     let messages = [];
     let currentMe = '';
     let chatDateOrder = 'mdy';
+    const senderAliases = new Map([['fahad', '+20 10 90667899']]);
+
+    function displaySenderName(sender) {
+      return senderAliases.get(sender.toLocaleLowerCase()) || sender;
+    }
 
     async function init() {
       try {
@@ -230,7 +235,7 @@
       for (const sender of senders) {
         const option = document.createElement('option');
         option.value = sender;
-        option.textContent = `Right side: ${sender}`;
+        option.textContent = `Right side: ${displaySenderName(sender)}`;
         meSelect.append(option);
       }
       const fahad = senders.find(sender => sender.toLocaleLowerCase() === 'fahad');
@@ -362,7 +367,7 @@
           bubble.className = `msg ${item.sender === currentMe && currentMe ? 'sent' : 'recv'}`;
           const sender = document.createElement('div');
           sender.className = 'sender';
-          sender.textContent = item.sender;
+          sender.textContent = displaySenderName(item.sender);
           bubble.append(sender);
           appendAttachment(bubble, item.content);
           const time = document.createElement('time');
